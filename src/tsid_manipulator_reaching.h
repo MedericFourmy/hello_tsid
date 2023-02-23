@@ -64,7 +64,16 @@ public:
 
     TsidManipulatorReaching(std::string _model_path, const TsidConfig& _conf):
     conf_(_conf)
-    {
+    {   
+        /**
+         * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         * Do NOT use:
+         * RobotWrapper(pin::Model model, true)
+         * 
+         * This constructor currently (23/02/23) harcodes the assumption of the presence of a free-flyer joint
+         * which produces an inconsistent problem down the line
+         * 
+         */
         tsid_robot_ = std::make_unique<RobotWrapper>(_model_path, std::vector<std::string>(), true);
         std::cout << "tsid_robot_->nq(), tsid_robot_->nv(), tsid_robot_->na():\n" 
                   << tsid_robot_->nq() << ", " << tsid_robot_->nv() << ", " << tsid_robot_->na() << std::endl;
