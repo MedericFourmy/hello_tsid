@@ -34,7 +34,7 @@ int main()
     x_r.translation() += offset;
 
     // loop variables
-    int N = 3000;
+    int N = 10000;
     double dt = 1e-3;
     
     Vector7d q = q0;

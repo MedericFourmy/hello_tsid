@@ -36,10 +36,10 @@ struct TsidConfig
 
     // other parameters
     double tau_limit_scale = 0.5;
-    double v_limit_scale = 0.2;
+    double v_limit_scale = 0.1;
 
     std::string ee_frame_name = "panda_link8";
-    Vector6d ee_task_mask = (Vector6d()<<1,1,1,0,0,0).finished();
+    Vector6d ee_task_mask = (Vector6d()<<1,1,1,1,1,1).finished();
 
 };
 

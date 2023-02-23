@@ -23,15 +23,16 @@ plt.legend()
 plt.grid()
 
 fig, axes = plt.subplots(2,1)
-axes[0].set_title('t (m)')
-axes[1].set_title('o (deg)')
+axes[0].set_title('translation (m)')
+axes[1].set_title('orientation (deg)')
 for i in range(3):
     k = 'xyz'[i]
     c = 'rgb'[i]
     axes[0].plot(t_arr, df_T[f't{k}'], f'{c}', label=f't{k}')
     axes[0].plot(t_arr, df_T[f't{k}_r'], f'{c}--', label=f't{k}_r')
+    axes[1].plot(t_arr, np.rad2deg(df_T[f'o{k}']), f'{c}', label=f'o{k}')
+    axes[1].plot(t_arr, np.rad2deg(df_T[f'o{k}_r']), f'{c}--', label=f'o{k}_r')
 
-plt.title('pose (m or rad)')
 plt.xlabel('iterations')
 plt.legend()
 plt.grid()
