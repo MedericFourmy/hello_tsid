@@ -40,8 +40,6 @@ struct TsidConfig
 
     std::string ee_frame_name = "panda_link8";
     Vector6d ee_task_mask = (Vector6d()<<1,1,1,0,0,0).finished();
-    Vector7d q0 = Vector7d::Zero(); 
-    Vector7d v0 = Vector7d::Zero(); 
 
 };
 
@@ -78,14 +76,11 @@ public:
         std::cout << "tsid_robot_->nq(), tsid_robot_->nv(), tsid_robot_->na():\n" 
                   << tsid_robot_->nq() << ", " << tsid_robot_->nv() << ", " << tsid_robot_->na() << std::endl;
         formulation_ = std::make_unique<IDFormulation>("tsid", *tsid_robot_, false);
-        formulation_->computeProblemData(0.0, conf_.q0, conf_.v0);
 
         // 1) posture task
         postureTask_ = std::make_unique<TaskJointPosture>("task-posture", *tsid_robot_);
         postureTask_->Kp(         conf_.kp_posture  * Vector7d::Ones());
         postureTask_->Kd(2.0*sqrt(conf_.kp_posture) * Vector7d::Ones());
-        auto trajPosture = tsid::trajectories::TrajectoryEuclidianConstant("traj_joint", conf_.q0);
-        postureTask_->setReference(trajPosture.computeNext());
         formulation_->addMotionTask(*postureTask_, conf_.w_posture, 1, 0.0);
 
         // 2) EE tracking task

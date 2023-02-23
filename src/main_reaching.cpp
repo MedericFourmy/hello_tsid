@@ -18,12 +18,12 @@ int main()
     pin::Data data_pin(model_pin);
 
     TsidConfig conf;
-    conf.q0 = (Vector7d()<< 0, -0.785398163397, 0, -2.35619449019, 0, 1.57079632679, 0.785398163397).finished();
+    Vector7d q0; q0 << 0, -0.785398163397, 0, -2.35619449019, 0, 1.57079632679, 0.785398163397;
     TsidManipulatorReaching tsid_reaching_(model_path, conf);
 
-    tsid_reaching_.setPostureRef(conf.q0);
+    tsid_reaching_.setPostureRef(q0);
 
-    pin::forwardKinematics(model_pin, data_pin, conf.q0);
+    pin::forwardKinematics(model_pin, data_pin, q0);
     pin::updateFramePlacements(model_pin, data_pin);
     pin::SE3 T_ee0 = data_pin.oMf[model_pin.getFrameId(ee_frame_pin)];
     pin::Motion dx_r = pin::Motion::Zero(); 
@@ -37,7 +37,7 @@ int main()
     int N = 3000;
     double dt = 1e-3;
     
-    Vector7d q = conf.q0;
+    Vector7d q = q0;
     Vector7d v = Vector7d::Zero();
     std::ofstream file_q;
     std::ofstream file_v;
@@ -54,9 +54,10 @@ int main()
     file_T << "tx,ty,tz,ox,oy,oz,tx_r,ty_r,tz_r,ox_r,oy_r,oz_r" << "\n";
 
     for (int i=0; i < N; i++)
-    {        
-        tsid_reaching_.solve(q, v);
+    {   
         tsid_reaching_.setEERef(x_r, dx_r, ddx_r);
+
+        tsid_reaching_.solve(q, v);
         Eigen::VectorXd dv = tsid_reaching_.getAccelerations();
         Eigen::VectorXd tau_d = tsid_reaching_.getTorques();
 
