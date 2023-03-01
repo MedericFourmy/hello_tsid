@@ -3,10 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-df_T = pd.read_csv('build/tsid_out_T.csv')
-df_q = pd.read_csv('build/tsid_out_q.csv')
-df_tau = pd.read_csv('build/tsid_out_tau.csv')
-df_v = pd.read_csv('build/tsid_out_v.csv')
+df_T = pd.read_csv('../build/tsid_out_T.csv')
+df_q = pd.read_csv('../build/tsid_out_q.csv')
+df_tau = pd.read_csv('../build/tsid_out_tau.csv')
+df_v = pd.read_csv('../build/tsid_out_v.csv')
 
 t_arr = np.arange(len(df_q))*1e-3
 
