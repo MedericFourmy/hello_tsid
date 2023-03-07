@@ -10,6 +10,7 @@
 #include <tsid/tasks/task-joint-posture.hpp>
 #include <tsid/tasks/task-actuation-bounds.hpp>
 #include <tsid/tasks/task-joint-bounds.hpp>
+#include <tsid/tasks/task-joint-posVelAcc-bounds.hpp> 
 #include <tsid/trajectories/trajectory-euclidian.hpp>
 #include <tsid/trajectories/trajectory-se3.hpp>
 
@@ -36,7 +37,8 @@ struct TsidConfig
 
     // other parameters
     double tau_limit_scale = 0.5;
-    double v_limit_scale = 0.1;
+    double v_limit_scale = 0.3;
+    double q_limit_scale = 0.9;
 
     std::string ee_frame_name = "panda_link8";
     Vector6d ee_task_mask = (Vector6d()<<1,1,1,1,1,1).finished();
@@ -53,6 +55,7 @@ public:
     typedef tsid::tasks::TaskJointPosture TaskJointPosture;
     typedef tsid::tasks::TaskActuationBounds TaskActuationBounds;
     typedef tsid::tasks::TaskJointBounds TaskJointBounds;
+    typedef tsid::tasks::TaskJointPosVelAccBounds TaskJointPosVelAccBounds;
     typedef tsid::solvers::SolverHQuadProgFast SolverHQuadProgFast;
 
     TsidManipulatorReaching()
@@ -60,7 +63,7 @@ public:
         // dummy constructor necessary to use this class as a member variable directly
     }
 
-    TsidManipulatorReaching(std::string _model_path, const TsidConfig& _conf):
+    TsidManipulatorReaching(pin::Model _model, const TsidConfig& _conf):
     conf_(_conf)
     {   
         /**
@@ -68,11 +71,12 @@ public:
          * Do NOT use:
          * RobotWrapper(pin::Model model, true)
          * 
-         * This constructor currently (23/02/23) harcodes the assumption of the presence of a free-flyer joint
-         * which produces an inconsistent problem down the line
-         * 
+         * since by default a floating base is assumed. Use the explicit constructor.
          */
-        tsid_robot_ = std::make_unique<RobotWrapper>(_model_path, std::vector<std::string>(), true);
+        tsid_robot_ = std::make_unique<RobotWrapper>(
+                        _model, 
+                        tsid::robots::RobotWrapper::RootJointType::FIXED_BASE_SYSTEM, 
+                        true);
         std::cout << "tsid_robot_->nq(), tsid_robot_->nv(), tsid_robot_->na():\n" 
                   << tsid_robot_->nq() << ", " << tsid_robot_->nv() << ", " << tsid_robot_->na() << std::endl;
         formulation_ = std::make_unique<IDFormulation>("tsid", *tsid_robot_, false);
@@ -95,7 +99,6 @@ public:
         auto trajEE =  tsid::trajectories::TrajectorySE3Constant("traj-ee", H_ee_ref);
         formulation_->addMotionTask(*eeTask_, conf_.w_ee, 1, 0.0);
 
-
         // 3) Actuation bound Constraint
         // TODO: read from param server
         actuationBoundsTask_ = std::make_unique<TaskActuationBounds>("task-actuation-bounds", *tsid_robot_);
@@ -106,17 +109,37 @@ public:
         if (conf_.w_torque_bounds > 0.0)
             formulation_->addActuationTask(*actuationBoundsTask_, conf_.w_torque_bounds, 0, 0.0);
 
-        // 4) Vel constraint is actually implemented as an acceleration constraint:
+        // // 4) Vel constraint is actually implemented as an acceleration constraint:
+        // // ddq_max_due_to_vel = (v_ub - va)/dt;
+        // //  -> trim the acceleration on a given joint so that integrating it for dt does not go beyond vel limit
+        // double dt_margin = 2e-3; // margin before joint limit collision
+        // jointBoundsTask_ = std::make_unique<TaskJointBounds>("task-joint-bounds", *tsid_robot_, dt_margin);
+        // Vector7d v_max = conf_.v_limit_scale * tsid_robot_->model().velocityLimit;
+        // Vector7d v_min = -v_max;
+        // std::cout << v_max.transpose() << std::endl;
+        // jointBoundsTask_->setVelocityBounds(v_min, v_max);
+        // if (conf_.w_joint_bounds > 0.0)
+        //     formulation_->addMotionTask(*jointBoundsTask_, conf_.w_joint_bounds, 0, 0.0);
+
+
+        // 4) Joint position and velocity constraint
+        // For the vel constraint: 
         // ddq_max_due_to_vel = (v_ub - va)/dt;
         //  -> trim the acceleration on a given joint so that integrating it for dt does not go beyond vel limit
         double dt_margin = 2e-3; // margin before joint limit collision
-        jointBoundsTask_ = std::make_unique<TaskJointBounds>("task-joint-bounds", *tsid_robot_, dt_margin);
+        jointPosVelAccBounds_ = std::make_unique<TaskJointPosVelAccBounds>("task-joint-pose-vel-acc-bounds", *tsid_robot_, dt_margin);
         Vector7d v_max = conf_.v_limit_scale * tsid_robot_->model().velocityLimit;
-        Vector7d v_min = -v_max;
         std::cout << v_max.transpose() << std::endl;
-        jointBoundsTask_->setVelocityBounds(v_min, v_max);
+        jointPosVelAccBounds_->setVelocityBounds(v_max);
+        jointPosVelAccBounds_->setPositionBounds(
+            conf_.q_limit_scale*tsid_robot_->model().lowerPositionLimit, 
+            conf_.q_limit_scale*tsid_robot_->model().upperPositionLimit
+        );
+        std::cout << "Joint limits" << std::endl;
+        std::cout << conf_.q_limit_scale*tsid_robot_->model().lowerPositionLimit.transpose() << std::endl;
+        std::cout << conf_.q_limit_scale*tsid_robot_->model().upperPositionLimit.transpose() << std::endl;
         if (conf_.w_joint_bounds > 0.0)
-            formulation_->addMotionTask(*jointBoundsTask_, conf_.w_joint_bounds, 0, 0.0);
+            formulation_->addMotionTask(*jointPosVelAccBounds_, conf_.w_joint_bounds, 0, 0.0);
 
         // SOLVER
         solver_qp_ = std::make_unique<SolverHQuadProgFast>("qp solver");
@@ -189,6 +212,7 @@ public:
     std::unique_ptr<TaskJointPosture> postureTask_;
     std::unique_ptr<TaskActuationBounds> actuationBoundsTask_;
     std::unique_ptr<TaskJointBounds> jointBoundsTask_;
+    std::unique_ptr<TaskJointPosVelAccBounds> jointPosVelAccBounds_;
     std::unique_ptr<SolverHQuadProgFast> solver_qp_;
 
     // optimization problem results

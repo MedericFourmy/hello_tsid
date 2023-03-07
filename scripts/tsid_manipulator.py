@@ -1,11 +1,12 @@
-import pinocchio as se3
+import pinocchio as pin
 import tsid
 import numpy as np
-import numpy.matlib as matlib
 import os
 import gepetto.corbaserver
 import time
 import subprocess
+
+# pin.switchToNumpyMatrix()
 
 
 class TsidManipulator:
@@ -16,14 +17,14 @@ class TsidManipulator:
         - pos/vel limits
     '''
     
-    def __init__(self, conf, viewer=True):
+    def __init__(self, model: pin.Model, conf: dict(), viewer=True):
         self.conf = conf
-        self.robot = tsid.RobotWrapper(conf.urdf, [conf.path], False)
-        robot = self.robot
-        self.model = model = robot.model()
+        robot = tsid.RobotWrapper(model, tsid.FIXED_BASE_SYSTEM, False)
+        self.robot = robot
+        self.model = model
         try:
-#            q = se3.getNeutralConfiguration(model, conf.srdf, False)
-            se3.loadReferenceConfigurations(model, conf.srdf, False)
+#            q = pin.getNeutralConfiguration(model, conf.srdf, False)
+            pin.loadReferenceConfigurations(model, conf.srdf, False)
             q = model.referenceConfigurations['default']
 #        q = model.referenceConfigurations["half_sitting"]
         except:
@@ -64,7 +65,17 @@ class TsidManipulator:
         jointBoundsTask.setVelocityBounds(self.v_min, self.v_max)
         if(conf.w_joint_bounds>0.0):
             formulation.addMotionTask(jointBoundsTask, conf.w_joint_bounds, 0, 0.0)
-        
+
+        # NO BINDINGS FOR THIS TASK!
+        # jointBoundsTask = tsid.TaskJointPosVelAccBounds('task-joint-bounds', robot, conf.dt)
+        # self.q_min = conf.q_min_scaling * model.lowerPositionLimit
+        # self.q_max = conf.q_max_scaling * model.upperPositionLimit
+        # self.v_max = conf.v_max_scaling * model.velocityLimit
+        # jointBoundsTask.setVelocityBounds(self.v_max)
+        # jointBoundsTask.setPositionBounds(self.q_min, self.q_max)
+        # if(conf.w_joint_bounds>0.0):
+        #     formulation.addMotionTask(jointBoundsTask, conf.w_joint_bounds, 0, 0.0)
+
         trajPosture = tsid.TrajectoryEuclidianConstant("traj_joint", q)
         postureTask.setReference(trajPosture.computeNext())
         
@@ -79,10 +90,40 @@ class TsidManipulator:
         self.solver = solver
         self.q = q
         self.v = v
+
+
+
+
+        armature_scalar = 0.0
+        gear_ratios = np.matrix(np.ones(7))
+        rotor_inertias = armature_scalar*np.matrix(np.ones(7))
+        # robot.model().gear_ratios = gear_ratios 
+        # robot.model().rotor_inertias = rotor_inertias 
+        print(robot.model().rotorGearRatio)
+        print(robot.model().rotorInertia)
+        print(robot.gear_ratios)
+        print(robot.rotor_inertias)
+        # robot.set_gear_ratios(robot, gear_ratios)
+        # robot.set_rotor_inertias(robot, rotor_inertias)
+        # robot.gear_ratios = gear_ratios
+        # robot.rotor_inertias = rotor_inertias
+        # robot.gear_ratios(gear_ratios)
+        # robot.rotor_inertias(rotor_inertias)
+        # robot.updateMd()  # <==> croco "armature" but not binded
+        # robot.setGravity(pin.Motion.Zero())
+
+
+        formulation.computeProblemData(0.0, q, v)
+        tsid_data = formulation.data()
+        robot.computeAllTerms(tsid_data, q, v)
+
+        # print('HEY')
+        # print(robot.com(tsid_data))
+        # robot.set_rotor_inertias(np.ones(7))
                 
         # for gepetto viewer
         if(viewer):
-            self.robot_display = se3.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path, ])
+            self.robot_display = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path, ])
             l = subprocess.getstatusoutput("ps aux |grep 'gepetto-gui'|grep -v 'grep'|wc -l")
             if int(l[1]) == 0:
                 os.system('gepetto-gui &')
@@ -98,5 +139,5 @@ class TsidManipulator:
     def integrate_dv(self, q, v, dv, dt):
         v_mean = v + 0.5*dt*dv
         v += dt*dv
-        q = se3.integrate(self.model, q, dt*v_mean)
+        q = pin.integrate(self.model, q, dt*v_mean)
         return q,v

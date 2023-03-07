@@ -18,17 +18,20 @@ int main()
     pin::Data data_pin(model_pin);
 
     TsidConfig conf;
-    Vector7d q0; q0 << 0, -0.785398163397, 0, -2.35619449019, 0, 1.57079632679, 0.785398163397;
-    TsidManipulatorReaching tsid_reaching_(model_path, conf);
+    Vector7d q0;
+    q0 << 0, -0.785398163397, 0, -2.35619449019, 0, 1.57079632679, 0.785398163397;
+    TsidManipulatorReaching tsid_reaching_(model_pin, conf);
 
     tsid_reaching_.setPostureRef(q0);
 
     pin::forwardKinematics(model_pin, data_pin, q0);
     pin::updateFramePlacements(model_pin, data_pin);
     pin::SE3 T_ee0 = data_pin.oMf[model_pin.getFrameId(ee_frame_pin)];
-    pin::Motion dx_r = pin::Motion::Zero(); 
-    pin::Motion ddx_r = pin::Motion::Zero(); 
-    Eigen::Vector3d offset; offset << 0.3, 0.2, 0.0;
+    pin::Motion dx_r = pin::Motion::Zero();
+    pin::Motion ddx_r = pin::Motion::Zero();
+    Eigen::Vector3d offset;
+    // offset << -0.1, 0.2, 0.0;
+    offset << -0.2, 0.0, 0.0;
 
     pin::SE3 x_r = T_ee0;
     x_r.translation() += offset;
@@ -36,7 +39,7 @@ int main()
     // loop variables
     int N = 10000;
     double dt = 1e-3;
-    
+
     Vector7d q = q0;
     Vector7d v = Vector7d::Zero();
     std::ofstream file_q;
@@ -48,13 +51,19 @@ int main()
     file_tau.open("tsid_out_tau.csv");
     file_T.open("tsid_out_T.csv");
 
-    file_q << "q0,q1,q2,q3,q4,q5,q6" << "\n";
-    file_v << "v0,v1,v2,v3,v4,v5,v6" << "\n";
-    file_tau << "tau0,tau1,tau2,tau3,tau4,tau5,tau6" << "\n";
-    file_T << "tx,ty,tz,ox,oy,oz,tx_r,ty_r,tz_r,ox_r,oy_r,oz_r" << "\n";
+    file_q << "q0,q1,q2,q3,q4,q5,q6"
+           << "\n";
+    file_v << "v0,v1,v2,v3,v4,v5,v6"
+           << "\n";
+    file_tau << "tau0,tau1,tau2,tau3,tau4,tau5,tau6"
+             << "\n";
+    file_T << "tx,ty,tz,ox,oy,oz,tx_r,ty_r,tz_r,ox_r,oy_r,oz_r"
+           << "\n";
 
-    for (int i=0; i < N; i++)
-    {   
+    for (int i = 0; i < N; i++)
+    {
+
+        // std::cout << i << std::endl;
         tsid_reaching_.setEERef(x_r, dx_r, ddx_r);
 
         tsid_reaching_.solve(q, v);
@@ -76,7 +85,7 @@ int main()
         file_v << v(0) << ","
                << v(1) << ","
                << v(2) << ","
-               << v(3) << "," 
+               << v(3) << ","
                << v(4) << ","
                << v(5) << ","
                << v(6) << "\n";
@@ -91,7 +100,7 @@ int main()
 
         Eigen::Vector3d aa_ee = pin::log3(T_ee.rotation());
         Eigen::Vector3d aa_r = pin::log3(x_r.rotation());
-        
+
         file_T << T_ee.translation()(0) << ","
                << T_ee.translation()(1) << ","
                << T_ee.translation()(2) << ","
@@ -106,13 +115,10 @@ int main()
                << aa_r(2) << "\n";
 
         tsid_reaching_.integrate_dv(q, v, dv, dt);
-
-
-    } 
+    }
 
     file_q.close();
     file_v.close();
     file_tau.close();
     file_T.close();
-    
 }

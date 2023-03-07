@@ -10,14 +10,14 @@ import numpy as np
 np.set_printoptions(precision=3, linewidth=200, suppress=True)
 LINE_WIDTH = 60
 
-N_SIMULATION = 8000             # number of time steps simulated
+N_SIMULATION = 10000             # number of time steps simulated
 dt = 0.001                      # controller time step
 q0 = np.array([0, -0.785398163397, 0, -2.35619449019, 0, 1.57079632679, 0.785398163397])
 
 # REFERENCE SINUSOIDAL TRAJECTORY
 amp                  = np.array([0.15, 0.3, 0.1])           # amplitude
 phi                  = np.array([0.0, 0.0, 0.0])         # phase
-two_pi_f             = 2*np.pi*np.array([0.125, 0.125, 0.125])   # frequency (time 2 PI)
+two_pi_f             = 2*np.pi*np.array([0.10, 0.10, 0.10])   # frequency (time 2 PI)
 offset               = np.array([0.0, 0.0, 0.0])
 
 w_ee = 1.0                      # weight of end-effector task
@@ -29,7 +29,8 @@ kp_ee = 100.0                   # proportional gain of end-effector constraint
 kp_posture = 1.0               # proportional gain of joint posture task
 
 tau_max_scaling = 0.4           # scaling factor of torque bounds
-v_max_scaling = 0.3             # scaling factor of velocity bounds
+v_max_scaling = 0.4             # scaling factor of velocity bounds
+# q_max_scaling = 0.95             # scaling factor of joint config bounds
 
 ee_frame_name = "panda_link8"        # end-effector frame name
 ee_task_mask = np.array([1., 1, 1, 0, 0, 0])

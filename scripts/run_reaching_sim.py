@@ -1,9 +1,8 @@
+import time
 import numpy as np
-from numpy import nan
-from numpy.linalg import norm as norm
 import matplotlib.pyplot as plt
 import plot_utils as plut
-import time
+import pinocchio as pin
 from tsid_manipulator import TsidManipulator
 
 import panda_conf as conf
@@ -20,19 +19,20 @@ PLOT_JOINT_VEL = 1
 PLOT_JOINT_ANGLE = 1
 PLOT_TORQUES = 1
 
-tsid = TsidManipulator(conf)
+robot = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path])
+tsid = TsidManipulator(robot.model, conf)
 
 N = conf.N_SIMULATION
-tau    = np.empty((tsid.robot.na, N))*nan
-q      = np.empty((tsid.robot.nq, N+1))*nan
-v      = np.empty((tsid.robot.nv, N+1))*nan
-ee_pos = np.empty((3, N))*nan
-ee_vel = np.empty((3, N))*nan
-ee_acc = np.empty((3, N))*nan
-ee_pos_ref = np.empty((3, N))*nan
-ee_vel_ref = np.empty((3, N))*nan
-ee_acc_ref = np.empty((3, N))*nan
-ee_acc_des = np.empty((3, N))*nan # acc_des = acc_ref - Kp*pos_err - Kd*vel_err
+tau    = np.zeros((tsid.robot.na, N))
+q      = np.zeros((tsid.robot.nq, N+1))
+v      = np.zeros((tsid.robot.nv, N+1))
+ee_pos = np.zeros((3, N))
+ee_vel = np.zeros((3, N))
+ee_acc = np.zeros((3, N))
+ee_pos_ref = np.zeros((3, N))
+ee_vel_ref = np.zeros((3, N))
+ee_acc_ref = np.zeros((3, N))
+ee_acc_des = np.zeros((3, N)) # acc_des = acc_ref - Kp*pos_err - Kd*vel_err
 
 sampleEE = tsid.trajEE.computeNext()
 samplePosture = tsid.trajPosture.computeNext()
@@ -85,7 +85,8 @@ for i in range(0, N):
 
     if i%conf.PRINT_N == 0:
         print(("Time %.3f"%(t)))
-        print(("\ttracking err %s: %.3f"%(tsid.eeTask.name.ljust(20,'.'), norm(tsid.eeTask.position_error, 2))))
+        print(("\ttracking err %s: %.3f"%(tsid.eeTask.name.ljust(20,'.'), 
+                                          np.linalg.norm(tsid.eeTask.position_error, 2))))
 
     q[:,i+1], v[:,i+1] = tsid.integrate_dv(q[:,i], v[:,i], dv, conf.dt)
     t += conf.dt
@@ -171,6 +172,7 @@ if(PLOT_JOINT_VEL):
 
 ############################
 # store trajectories in csv
+import os
 import pandas as pd
 
 df_q = pd.DataFrame(q.T)
@@ -178,13 +180,17 @@ df_v = pd.DataFrame(v.T)
 df_tau = pd.DataFrame(tau.T)
 
 
-DIR = '/home/mfourmy/Downloads/'
-LABEL = 'mid'
-df_q.to_csv(DIR+f'panda_traj_rec_{LABEL}_q.csv', sep=',', header=False, index=False)
-df_v.to_csv(DIR+f'panda_traj_rec_{LABEL}_v.csv', sep=',', header=False, index=False)
-df_tau.to_csv(DIR+f'panda_traj_rec_{LABEL}_tau.csv', sep=',', header=False, index=False)
+SAVE_DIR = '/home/mfourmy/Downloads/'
+LABEL = 'slow'
+traj_dir = os.path.join(SAVE_DIR, f'tsid_panda_traj_{LABEL}')
+if not os.path.exists(traj_dir):
+   os.makedirs(traj_dir)
 
-print('Saved in ', DIR)
+df_q.to_csv(  os.path.join(traj_dir, 'q.csv'),   sep=',', header=False, index=False)
+df_v.to_csv(  os.path.join(traj_dir, 'v.csv'),   sep=',', header=False, index=False)
+df_tau.to_csv(os.path.join(traj_dir, 'tau.csv'), sep=',', header=False, index=False)
+
+print('Saved q,v,tau in ', traj_dir)
 ############################
 
 
