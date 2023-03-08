@@ -31,7 +31,7 @@ int main()
     pin::Motion ddx_r = pin::Motion::Zero();
     Eigen::Vector3d offset;
     // offset << -0.1, 0.2, 0.0;
-    offset << -0.2, 0.0, 0.0;
+    offset << -0.2, 0.2, -0.1;
 
     pin::SE3 x_r = T_ee0;
     x_r.translation() += offset;

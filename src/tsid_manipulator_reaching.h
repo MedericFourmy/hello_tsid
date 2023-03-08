@@ -131,10 +131,11 @@ public:
         Vector7d v_max = conf_.v_limit_scale * tsid_robot_->model().velocityLimit;
         std::cout << v_max.transpose() << std::endl;
         jointPosVelAccBounds_->setVelocityBounds(v_max);
-        jointPosVelAccBounds_->setPositionBounds(
-            conf_.q_limit_scale*tsid_robot_->model().lowerPositionLimit, 
-            conf_.q_limit_scale*tsid_robot_->model().upperPositionLimit
-        );
+        Vector7d q_lb = conf_.q_limit_scale*tsid_robot_->model().lowerPositionLimit;
+        Vector7d q_ub = conf_.q_limit_scale*tsid_robot_->model().upperPositionLimit;
+        q_lb(2) = -0.2;
+        q_ub(2) =  0.2; 
+        jointPosVelAccBounds_->setPositionBounds(q_lb, q_ub);
         std::cout << "Joint limits" << std::endl;
         std::cout << conf_.q_limit_scale*tsid_robot_->model().lowerPositionLimit.transpose() << std::endl;
         std::cout << conf_.q_limit_scale*tsid_robot_->model().upperPositionLimit.transpose() << std::endl;
