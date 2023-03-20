@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 
-DEFAULT_FONT_SIZE = 20
+DEFAULT_FONT_SIZE = 12
 DEFAULT_AXIS_FONT_SIZE = DEFAULT_FONT_SIZE
-DEFAULT_LINE_WIDTH = 4  # 13
-DEFAULT_MARKER_SIZE = 6
+DEFAULT_LINE_WIDTH = 3  # 13
+DEFAULT_MARKER_SIZE = 4
 DEFAULT_FONT_FAMILY = 'sans-serif'
 DEFAULT_FONT_SIZE = DEFAULT_FONT_SIZE
 DEFAULT_FONT_SERIF = ['Times New Roman', 'Times', 'Bitstream Vera Serif', 'DejaVu Serif', 'New Century Schoolbook',

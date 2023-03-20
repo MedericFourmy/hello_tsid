@@ -22,20 +22,11 @@ class TsidManipulator:
         robot = tsid.RobotWrapper(model, tsid.FIXED_BASE_SYSTEM, False)
         self.robot = robot
         self.model = model
-        try:
-#            q = pin.getNeutralConfiguration(model, conf.srdf, False)
-            pin.loadReferenceConfigurations(model, conf.srdf, False)
-            q = model.referenceConfigurations['default']
-#        q = model.referenceConfigurations["half_sitting"]
-        except:
-            q = conf.q0
-#            q = np.array(np.zeros(robot.nv)).T
-        v = np.zeros(robot.nv)
         
         assert model.existFrame(conf.ee_frame_name)
         
         formulation = tsid.InverseDynamicsFormulationAccForce("tsid", robot, False)
-        formulation.computeProblemData(0.0, q, v)
+        formulation.computeProblemData(0.0, conf.q0, conf.v0)  # TODO: necessary?
                 
         postureTask = tsid.TaskJointPosture("task-posture", robot)
         postureTask.setKp(conf.kp_posture * np.ones(robot.nv))
@@ -76,7 +67,7 @@ class TsidManipulator:
         # if(conf.w_joint_bounds>0.0):
         #     formulation.addMotionTask(jointBoundsTask, conf.w_joint_bounds, 0, 0.0)
 
-        trajPosture = tsid.TrajectoryEuclidianConstant("traj_joint", q)
+        trajPosture = tsid.TrajectoryEuclidianConstant("traj_joint", conf.q0)
         postureTask.setReference(trajPosture.computeNext())
         
         solver = tsid.SolverHQuadProgFast("qp solver")
@@ -84,38 +75,37 @@ class TsidManipulator:
         
         self.trajPosture = trajPosture
         self.postureTask  = postureTask
-        self.actuationBoundsTask = actuationBoundsTask
-        self.jointBoundsTask = jointBoundsTask
+        # self.actuationBoundsTask = actuationBoundsTask
+        # self.jointBoundsTask = jointBoundsTask
         self.formulation = formulation
         self.solver = solver
-        self.q = q
-        self.v = v
+        self.q = conf.q0
+        self.v = conf.v0
 
 
+        # SETTING ARMATURE IN PYTHON NOT POSSIBLE
+        # armature_scalar = 0.0
+        # gear_ratios = np.matrix(np.ones(7))
+        # rotor_inertias = armature_scalar*np.matrix(np.ones(7))
+        # # robot.model().gear_ratios = gear_ratios 
+        # # robot.model().rotor_inertias = rotor_inertias 
+        # print(robot.model().rotorGearRatio)
+        # print(robot.model().rotorInertia)
+        # print(robot.gear_ratios)
+        # print(robot.rotor_inertias)
+        # # robot.set_gear_ratios(robot, gear_ratios)
+        # # robot.set_rotor_inertias(robot, rotor_inertias)
+        # # robot.gear_ratios = gear_ratios
+        # # robot.rotor_inertias = rotor_inertias
+        # # robot.gear_ratios(gear_ratios)
+        # # robot.rotor_inertias(rotor_inertias)
+        # # robot.updateMd()  # <==> croco "armature" but not binded
+        # # robot.setGravity(pin.Motion.Zero())
 
 
-        armature_scalar = 0.0
-        gear_ratios = np.matrix(np.ones(7))
-        rotor_inertias = armature_scalar*np.matrix(np.ones(7))
-        # robot.model().gear_ratios = gear_ratios 
-        # robot.model().rotor_inertias = rotor_inertias 
-        print(robot.model().rotorGearRatio)
-        print(robot.model().rotorInertia)
-        print(robot.gear_ratios)
-        print(robot.rotor_inertias)
-        # robot.set_gear_ratios(robot, gear_ratios)
-        # robot.set_rotor_inertias(robot, rotor_inertias)
-        # robot.gear_ratios = gear_ratios
-        # robot.rotor_inertias = rotor_inertias
-        # robot.gear_ratios(gear_ratios)
-        # robot.rotor_inertias(rotor_inertias)
-        # robot.updateMd()  # <==> croco "armature" but not binded
-        # robot.setGravity(pin.Motion.Zero())
-
-
-        formulation.computeProblemData(0.0, q, v)
-        tsid_data = formulation.data()
-        robot.computeAllTerms(tsid_data, q, v)
+        # formulation.computeProblemData(0.0, q, v)
+        # tsid_data = formulation.data()
+        # robot.computeAllTerms(tsid_data, q, v)
 
         # print('HEY')
         # print(robot.com(tsid_data))
@@ -132,12 +122,6 @@ class TsidManipulator:
             self.robot_display.initViewer(loadModel=True)
             self.robot_display.displayCollisions(False)
             self.robot_display.displayVisuals(True)
-            self.robot_display.display(q)
+            self.robot_display.display(self.q)
             self.gui = self.robot_display.viewer.gui
 #            self.gui.setCameraTransform(0, conf.CAMERA_TRANSFORM)
-        
-    def integrate_dv(self, q, v, dv, dt):
-        v_mean = v + 0.5*dt*dv
-        v += dt*dv
-        q = pin.integrate(self.model, q, dt*v_mean)
-        return q,v

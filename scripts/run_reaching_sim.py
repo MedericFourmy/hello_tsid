@@ -3,9 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plot_utils as plut
 import pinocchio as pin
-from tsid_manipulator import TsidManipulator
 
+# from unified_simulators.pinocchio_sim import PinocchioSim as Simulator
+from unified_simulators.pybullet_sim import PybulletSim as Simulator
+from tsid_manipulator import TsidManipulator
 import panda_conf as conf
+
+np.set_printoptions(linewidth=150)
+
 
 print(("".center(conf.LINE_WIDTH,'#')))
 print((" TSID - Manipulator End-Effector Sin Tracking ".center(conf.LINE_WIDTH, '#')))
@@ -20,7 +25,13 @@ PLOT_JOINT_ANGLE = 1
 PLOT_TORQUES = 1
 
 robot = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path])
+# robot.model.gravity.linear = np.zeros(3)
+robot.model.gravity.linear = np.array([0,0,-9.81])
 tsid = TsidManipulator(robot.model, conf)
+
+# Simulation
+sim = Simulator(conf.dt, conf.urdf, [conf.path], conf.joint_names)
+sim.set_state(conf.q0, conf.v0)
 
 N = conf.N_SIMULATION
 tau    = np.zeros((tsid.robot.na, N))
@@ -65,7 +76,7 @@ for i in range(0, N):
     tsid.eeTask.setReference(sampleEE)
 
     HQPData = tsid.formulation.computeProblemData(t, q[:,i], v[:,i])
-    # if i == 0: HQPData.print_all()
+    if i == 0: HQPData.print_all()
 
     sol = tsid.solver.solve(HQPData)
     if(sol.status!=0):
@@ -74,6 +85,13 @@ for i in range(0, N):
     
     tau[:,i] = tsid.formulation.getActuatorForces(sol)
     dv = tsid.formulation.getAccelerations(sol)
+
+    # print()
+    # print('tau', tau[:,i])
+    # print('dv', dv)
+
+    # if i == 100:
+    #     print(1/0)
     
     ee_pos[:,i] = tsid.robot.framePosition(tsid.formulation.data(), tsid.EE).translation
     ee_vel[:,i] = tsid.robot.frameVelocityWorldOriented(tsid.formulation.data(), tsid.EE).linear
@@ -88,7 +106,10 @@ for i in range(0, N):
         print(("\ttracking err %s: %.3f"%(tsid.eeTask.name.ljust(20,'.'), 
                                           np.linalg.norm(tsid.eeTask.position_error, 2))))
 
-    q[:,i+1], v[:,i+1] = tsid.integrate_dv(q[:,i], v[:,i], dv, conf.dt)
+    sim.send_joint_command(tau[:,i])
+    sim.step_simulation()
+    q[:,i+1], v[:,i+1], _ = sim.get_state()
+
     t += conf.dt
     
     if i%conf.DISPLAY_N == 0: 
@@ -100,13 +121,14 @@ for i in range(0, N):
     if(time_spent < conf.dt): time.sleep(conf.dt-time_spent)
 
 # PLOT STUFF
-time = np.arange(0.0, N*conf.dt, conf.dt)
+t_arr = np.arange(0.0, N*conf.dt, conf.dt)
 
 if(PLOT_EE_POS):
     f, ax = plut.create_empty_figure(3,1)
+    f.canvas.manager.set_window_title('EE Ref')
     for i in range(3):
-        ax[i].plot(time, ee_pos[i,:], label='EE '+str(i))
-        ax[i].plot(time, ee_pos_ref[i,:], 'r:', label='EE Ref '+str(i))
+        ax[i].plot(t_arr, ee_pos[i,:], label='EE '+str(i))
+        ax[i].plot(t_arr, ee_pos_ref[i,:], 'r:', label='EE Ref '+str(i))
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel('EE [m]')
         leg = ax[i].legend()
@@ -114,9 +136,10 @@ if(PLOT_EE_POS):
 
 if(PLOT_EE_VEL):
     f, ax = plut.create_empty_figure(3,1)
+    f.canvas.manager.set_window_title('EE Vel')
     for i in range(3):
-        ax[i].plot(time, ee_vel[i,:], label='EE Vel '+str(i))
-        ax[i].plot(time, ee_vel_ref[i,:], 'r:', label='EE Vel Ref '+str(i))
+        ax[i].plot(t_arr, ee_vel[i,:], label='EE Vel '+str(i))
+        ax[i].plot(t_arr, ee_vel_ref[i,:], 'r:', label='EE Vel Ref '+str(i))
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel('EE Vel [m/s]')
         leg = ax[i].legend()
@@ -124,10 +147,11 @@ if(PLOT_EE_VEL):
 
 if(PLOT_EE_ACC):    
     f, ax = plut.create_empty_figure(3,1)
+    f.canvas.manager.set_window_title('EE Acc')
     for i in range(3):
-        ax[i].plot(time, ee_acc[i,:], label='EE Acc '+str(i))
-        ax[i].plot(time, ee_acc_ref[i,:], 'r:', label='EE Acc Ref '+str(i))
-        ax[i].plot(time, ee_acc_des[i,:], 'g--', label='EE Acc Des '+str(i))
+        ax[i].plot(t_arr, ee_acc[i,:], label='EE Acc '+str(i))
+        ax[i].plot(t_arr, ee_acc_ref[i,:], 'r:', label='EE Acc Ref '+str(i))
+        ax[i].plot(t_arr, ee_acc_des[i,:], 'g--', label='EE Acc Des '+str(i))
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel('EE Acc [m/s^2]')
         leg = ax[i].legend()
@@ -137,10 +161,11 @@ nb_rows = int(tsid.robot.nv/2)+1
 if(PLOT_TORQUES):    
     f, ax = plut.create_empty_figure(nb_rows,2)
     ax = ax.reshape(2*nb_rows)
+    f.canvas.manager.set_window_title('Joint Torques')
     for i in range(tsid.robot.nv):
-        ax[i].plot(time, tau[i,:], label='Torque '+str(i))
-        ax[i].plot([time[0], time[-1]], 2*[tsid.tau_min[i]], ':')
-        ax[i].plot([time[0], time[-1]], 2*[tsid.tau_max[i]], ':')
+        ax[i].plot(t_arr, tau[i,:], label='Torque '+str(i))
+        ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.tau_min[i]], ':')
+        ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.tau_max[i]], ':')
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel('Torque [Nm]')
         leg = ax[i].legend()
@@ -149,8 +174,10 @@ if(PLOT_TORQUES):
 if(PLOT_JOINT_ANGLE):    
     f, ax = plut.create_empty_figure(nb_rows,2)
     ax = ax.reshape(2*nb_rows)
+    f.canvas.manager.set_window_title('Joint Angles')
     for i in range(tsid.robot.nv):
-        ax[i].plot(time, q[i,:-1], label='Joint angle '+str(i))
+        ax[i].plot(t_arr, q[i,:-1], label='Joint angle '+str(i))
+        ax[i].plot([t_arr[0], t_arr[-1]], 2*[conf.q0[i]], ':')
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel('Joint angle [rad]')
         leg = ax[i].legend()
@@ -159,10 +186,11 @@ if(PLOT_JOINT_ANGLE):
 if(PLOT_JOINT_VEL):    
     f, ax = plut.create_empty_figure(nb_rows,2)
     ax = ax.reshape(2*nb_rows)
+    f.canvas.manager.set_window_title('Joint Velocities')
     for i in range(tsid.robot.nv):
-        ax[i].plot(time, v[i,:-1], label='Joint vel '+str(i))
-        ax[i].plot([time[0], time[-1]], 2*[tsid.v_min[i]], ':')
-        ax[i].plot([time[0], time[-1]], 2*[tsid.v_max[i]], ':')
+        ax[i].plot(t_arr, v[i,:-1], label='Joint vel '+str(i))
+        ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.v_min[i]], ':')
+        ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.v_max[i]], ':')
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel('Joint velocity [rad/s]')
         leg = ax[i].legend()
