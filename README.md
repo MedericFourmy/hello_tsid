@@ -8,12 +8,6 @@ reach a fixed target with the end effector with:
 - joint velocity limits
 
 TODO:
+- urdf path hardcoded -> use example-robot-data model when dynamics are incorporated
 - cleaner plot script
-- read tsid problem config from yaml (for C++)
-
-
-## dependencies
-`conda install pinocchio tsid`  
-
-For the simulation:  
-`pip install git+https://github.com/MedericFourmy/unified_simulators`
+- read tsid problem config from yaml

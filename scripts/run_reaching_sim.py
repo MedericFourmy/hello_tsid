@@ -4,12 +4,10 @@ import matplotlib.pyplot as plt
 import plot_utils as plut
 import pinocchio as pin
 
-from unified_simulators.pinocchio_sim import PinocchioSim as Simulator
-# from unified_simulators.pybullet_sim import PybulletSim as Simulator
-from unified_simulators.utils import freezed_robot
+# from unified_simulators.pinocchio_sim import PinocchioSim as Simulator
+from unified_simulators.pybullet_sim import PybulletSim as Simulator
 from tsid_manipulator import TsidManipulator
 import panda_conf as conf
-from example_robot_data import load
 
 np.set_printoptions(linewidth=150)
 
@@ -26,22 +24,23 @@ PLOT_JOINT_VEL = 1
 PLOT_JOINT_ANGLE = 1
 PLOT_TORQUES = 1
 
-
-robot_name = 'panda'
-robot = load(robot_name)
-ee_name = 'panda_link8'
-fixed_joints = ['panda_finger_joint1', 'panda_finger_joint2']
-fixed_joints = None
-robot = freezed_robot(robot, fixed_joints)
+robot = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path])
+# robot.model.gravity.linear = np.zeros(3)
+robot.model.gravity.linear = np.array([0,0,-9.81])
+tsid = TsidManipulator(robot.model, conf)
 
 # Simulation
-sim = Simulator()
-sim.init(conf.dt, robot_name, fixed_joints, visual=True)
-v0 = np.zeros(robot.nv)
-x0 = np.concatenate([robot.q0, v0])
-sim.setState(x0)
+# Simulation
+fixed_joints = ['panda_finger_joint1', 'panda_finger_joint2']
+# fixed_joints = None
+# robot = freezed_robot(robot, fixed_joints)
 
-tsid = TsidManipulator(robot, conf)
+sim = Simulator()
+sim.init(conf.dt, 'panda', fixed_joints, visual=True)
+sim.setState(conf.x0)
+
+
+
 
 N = conf.N_SIMULATION
 tau    = np.zeros((tsid.robot.na, N))
@@ -85,9 +84,7 @@ for i in range(0, N):
     sampleEE.second_derivative(aEE)
     tsid.eeTask.setReference(sampleEE)
 
-    print('ERROR is HERE')
     HQPData = tsid.formulation.computeProblemData(t, q[:,i], v[:,i])
-    print('computeProblemData PASSED')
     if i == 0: HQPData.print_all()
 
     sol = tsid.solver.solve(HQPData)
@@ -97,6 +94,13 @@ for i in range(0, N):
     
     tau[:,i] = tsid.formulation.getActuatorForces(sol)
     dv = tsid.formulation.getAccelerations(sol)
+
+    # print()
+    # print('tau', tau[:,i])
+    # print('dv', dv)
+
+    # if i == 100:
+    #     print(1/0)
     
     ee_pos[:,i] = tsid.robot.framePosition(tsid.formulation.data(), tsid.EE).translation
     ee_vel[:,i] = tsid.robot.frameVelocityWorldOriented(tsid.formulation.data(), tsid.EE).linear
@@ -112,8 +116,8 @@ for i in range(0, N):
                                           np.linalg.norm(tsid.eeTask.position_error, 2))))
 
     sim.step(tau[:,i])
-    xk = sim.getState()
-    qk_sim, vk_sim = xk[:robot.nq], xk[robot.nq:]
+    x = sim.getState()
+    q[:,i+1], v[:,i+1] = x[:robot.nq], x[robot.nq:]
 
     t += conf.dt
     
