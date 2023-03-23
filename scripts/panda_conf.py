@@ -47,17 +47,3 @@ SPHERE_RADIUS = 0.03
 REF_SPHERE_RADIUS = 0.03
 EE_SPHERE_COLOR  = (1, 0.5, 0, 0.5)
 EE_REF_SPHERE_COLOR  = (1, 0, 0, 0.5)
-
-urdf = "/home/mfourmy/catkin_ws/src/panda_torque_mpc/res/panda_inertias.urdf"
-path = "/home/mfourmy/catkin_ws/src/franka_ros/"
-
-
-joint_names = [
-    'panda_joint1',
-    'panda_joint2',
-    'panda_joint3',
-    'panda_joint4',
-    'panda_joint5',
-    'panda_joint6',
-    'panda_joint7',
-]

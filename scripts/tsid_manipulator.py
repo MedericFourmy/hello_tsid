@@ -15,11 +15,11 @@ class TsidManipulator:
         - pos/vel limits
     '''
     
-    def __init__(self, model_pin: pin.Model, conf: dict(), viewer=True):
+    def __init__(self, robot_pin, conf: dict(), viewer=True):
+        model_pin = robot_pin.model
         self.conf = conf
         robot_tsid = tsid.RobotWrapper(model_pin, tsid.FIXED_BASE_SYSTEM, False)
         self.robot_tsid = robot_tsid
-        self.model_pin = model_pin
         
         assert model_pin.existFrame(conf.ee_frame_name)
         
@@ -80,6 +80,22 @@ class TsidManipulator:
         self.q = conf.q0
         self.v = conf.v0
 
+ 
+        if(viewer):
+            self.robot_display = pin.RobotWrapper(robot_pin.model, robot_pin.collision_model, robot_pin.visual_model)
+            self.robot_display.q0 = self.robot_display.model.referenceConfigurations['default']
+
+            l = subprocess.getstatusoutput("ps aux |grep 'gepetto-gui'|grep -v 'grep'|wc -l")
+            if int(l[1]) == 0:
+                os.system('gepetto-gui &')
+            time.sleep(1)
+            gepetto.corbaserver.Client()
+            self.robot_display.initViewer(loadModel=True)
+            self.robot_display.displayCollisions(False)
+            self.robot_display.displayVisuals(True)
+            self.robot_display.display(self.q)
+            self.gui = self.robot_display.viewer.gui
+
 
         # SETTING ARMATURE IN PYTHON NOT POSSIBLE
         # armature_scalar = 0.0
@@ -99,27 +115,3 @@ class TsidManipulator:
         # # robot_tsid.rotor_inertias(rotor_inertias)
         # # robot_tsid.updateMd()  # <==> croco "armature" but not binded
         # # robot_tsid.setGravity(pin.Motion.Zero())
-
-
-        # formulation.computeProblemData(0.0, q, v)
-        # tsid_data = formulation.data()
-        # robot_tsid.computeAllTerms(tsid_data, q, v)
-
-        # print('HEY')
-        # print(robot_tsid.com(tsid_data))
-        # robot_tsid.set_rotor_inertias(np.ones(7))
-                
-        # for gepetto viewer
-        if(viewer):
-            self.robot_display = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path, ])
-            l = subprocess.getstatusoutput("ps aux |grep 'gepetto-gui'|grep -v 'grep'|wc -l")
-            if int(l[1]) == 0:
-                os.system('gepetto-gui &')
-            time.sleep(1)
-            gepetto.corbaserver.Client()
-            self.robot_display.initViewer(loadModel=True)
-            self.robot_display.displayCollisions(False)
-            self.robot_display.displayVisuals(True)
-            self.robot_display.display(self.q)
-            self.gui = self.robot_display.viewer.gui
-#            self.gui.setCameraTransform(0, conf.CAMERA_TRANSFORM)

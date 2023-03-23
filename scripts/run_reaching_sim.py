@@ -6,6 +6,7 @@ import pinocchio as pin
 
 # from unified_simulators.pinocchio_sim import PinocchioSim as Simulator
 from unified_simulators.pybullet_sim import PybulletSim as Simulator
+from unified_simulators.utils import freezed_robot
 from tsid_manipulator import TsidManipulator
 import panda_conf as conf
 
@@ -24,10 +25,20 @@ PLOT_JOINT_VEL = 1
 PLOT_JOINT_ANGLE = 1
 PLOT_TORQUES = 1
 
-robot = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path])
+from example_robot_data import load
+
+robot_name = 'panda'
+robot = load(robot_name)
+ee_name = 'panda_link8'
+fixed_joints = ['panda_finger_joint1', 'panda_finger_joint2']
+# fixed_joints = None
+robot = freezed_robot(robot, fixed_joints)
+
+
+# robot = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path])
 # robot.model.gravity.linear = np.zeros(3)
 robot.model.gravity.linear = np.array([0,0,-9.81])
-tsid = TsidManipulator(robot.model, conf)
+tsid = TsidManipulator(robot, conf)
 
 # Simulation
 # Simulation
