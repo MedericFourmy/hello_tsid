@@ -43,9 +43,9 @@ sim.setState(conf.x0)
 
 
 N = conf.N_SIMULATION
-tau    = np.zeros((tsid.robot.na, N))
-q      = np.zeros((tsid.robot.nq, N+1))
-v      = np.zeros((tsid.robot.nv, N+1))
+tau    = np.zeros((tsid.robot_tsid.na, N))
+q      = np.zeros((tsid.robot_tsid.nq, N+1))
+v      = np.zeros((tsid.robot_tsid.nv, N+1))
 ee_pos = np.zeros((3, N))
 ee_vel = np.zeros((3, N))
 ee_acc = np.zeros((3, N))
@@ -102,8 +102,8 @@ for i in range(0, N):
     # if i == 100:
     #     print(1/0)
     
-    ee_pos[:,i] = tsid.robot.framePosition(tsid.formulation.data(), tsid.EE).translation
-    ee_vel[:,i] = tsid.robot.frameVelocityWorldOriented(tsid.formulation.data(), tsid.EE).linear
+    ee_pos[:,i] = tsid.robot_tsid.framePosition(tsid.formulation.data(), tsid.EE).translation
+    ee_vel[:,i] = tsid.robot_tsid.frameVelocityWorldOriented(tsid.formulation.data(), tsid.EE).linear
     ee_acc[:,i] = tsid.eeTask.getAcceleration(dv)[:3]
     ee_pos_ref[:,i] = sampleEE.value()[:3]
     ee_vel_ref[:,i] = sampleEE.derivative()[:3]
@@ -166,12 +166,12 @@ if(PLOT_EE_ACC):
         leg = ax[i].legend()
         leg.get_frame().set_alpha(0.5)
 
-nb_rows = int(tsid.robot.nv/2)+1
+nb_rows = int(tsid.robot_tsid.nv/2)+1
 if(PLOT_TORQUES):    
     f, ax = plut.create_empty_figure(nb_rows,2)
     ax = ax.reshape(2*nb_rows)
     f.canvas.manager.set_window_title('Joint Torques')
-    for i in range(tsid.robot.nv):
+    for i in range(tsid.robot_tsid.nv):
         ax[i].plot(t_arr, tau[i,:], label='Torque '+str(i))
         ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.tau_min[i]], ':')
         ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.tau_max[i]], ':')
@@ -184,7 +184,7 @@ if(PLOT_JOINT_ANGLE):
     f, ax = plut.create_empty_figure(nb_rows,2)
     ax = ax.reshape(2*nb_rows)
     f.canvas.manager.set_window_title('Joint Angles')
-    for i in range(tsid.robot.nv):
+    for i in range(tsid.robot_tsid.nv):
         ax[i].plot(t_arr, q[i,:-1], label='Joint angle '+str(i))
         ax[i].plot([t_arr[0], t_arr[-1]], 2*[conf.q0[i]], ':')
         ax[i].set_xlabel('Time [s]')
@@ -196,7 +196,7 @@ if(PLOT_JOINT_VEL):
     f, ax = plut.create_empty_figure(nb_rows,2)
     ax = ax.reshape(2*nb_rows)
     f.canvas.manager.set_window_title('Joint Velocities')
-    for i in range(tsid.robot.nv):
+    for i in range(tsid.robot_tsid.nv):
         ax[i].plot(t_arr, v[i,:-1], label='Joint vel '+str(i))
         ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.v_min[i]], ':')
         ax[i].plot([t_arr[0], t_arr[-1]], 2*[tsid.v_max[i]], ':')

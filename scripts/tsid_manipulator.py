@@ -1,65 +1,65 @@
-import pinocchio as pin
-import tsid
-import numpy as np
 import os
-import gepetto.corbaserver
 import time
 import subprocess
+import numpy as np
+import tsid
+import pinocchio as pin
+import gepetto.corbaserver
 
 
 class TsidManipulator:
-    ''' Standard TSID formulation for a robot manipulator
+    ''' Standard TSID formulation for a robot_tsid manipulator
         - end-effector task
         - Postural task
         - torque limits
         - pos/vel limits
     '''
     
-    def __init__(self, model: pin.Model, conf: dict(), viewer=True):
+    def __init__(self, model_pin: pin.Model, conf: dict(), viewer=True):
         self.conf = conf
-        robot = tsid.RobotWrapper(model, tsid.FIXED_BASE_SYSTEM, False)
-        self.robot = robot
-        self.model = model
+        robot_tsid = tsid.RobotWrapper(model_pin, tsid.FIXED_BASE_SYSTEM, False)
+        self.robot_tsid = robot_tsid
+        self.model_pin = model_pin
         
-        assert model.existFrame(conf.ee_frame_name)
+        assert model_pin.existFrame(conf.ee_frame_name)
         
-        formulation = tsid.InverseDynamicsFormulationAccForce("tsid", robot, False)
+        formulation = tsid.InverseDynamicsFormulationAccForce("tsid", robot_tsid, False)
         formulation.computeProblemData(0.0, conf.q0, conf.v0)  # TODO: necessary?
                 
-        postureTask = tsid.TaskJointPosture("task-posture", robot)
-        postureTask.setKp(conf.kp_posture * np.ones(robot.nv))
-        postureTask.setKd(2.0 * np.sqrt(conf.kp_posture) * np.ones(robot.nv))
+        postureTask = tsid.TaskJointPosture("task-posture", robot_tsid)
+        postureTask.setKp(conf.kp_posture * np.ones(robot_tsid.nv))
+        postureTask.setKd(2.0 * np.sqrt(conf.kp_posture) * np.ones(robot_tsid.nv))
         formulation.addMotionTask(postureTask, conf.w_posture, 1, 0.0)
         
-        self.eeTask = tsid.TaskSE3Equality("task-ee", self.robot, self.conf.ee_frame_name)
+        self.eeTask = tsid.TaskSE3Equality("task-ee", self.robot_tsid, self.conf.ee_frame_name)
         self.eeTask.setKp(self.conf.kp_ee * np.ones(6))
         self.eeTask.setKd(2.0 * np.sqrt(self.conf.kp_ee) * np.ones(6))
         self.eeTask.setMask(conf.ee_task_mask)
         self.eeTask.useLocalFrame(conf.ee_task_local_frame)
-        self.EE = model.getFrameId(conf.ee_frame_name)
-        H_ee_ref = self.robot.framePosition(formulation.data(), self.EE)
+        self.EE = model_pin.getFrameId(conf.ee_frame_name)
+        H_ee_ref = self.robot_tsid.framePosition(formulation.data(), self.EE)
         self.trajEE = tsid.TrajectorySE3Constant("traj-ee", H_ee_ref)
         formulation.addMotionTask(self.eeTask, conf.w_ee, 1, 0.0)
         
-        self.tau_max = conf.tau_max_scaling*model.effortLimit
+        self.tau_max = conf.tau_max_scaling*model_pin.effortLimit
         self.tau_min = -self.tau_max
-        actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", robot)
+        actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", robot_tsid)
         actuationBoundsTask.setBounds(self.tau_min, self.tau_max)
         if(conf.w_torque_bounds>0.0):
             formulation.addActuationTask(actuationBoundsTask, conf.w_torque_bounds, 0, 0.0)
         
-        jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", robot, conf.dt)
-        self.v_max = conf.v_max_scaling * model.velocityLimit
+        jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", robot_tsid, conf.dt)
+        self.v_max = conf.v_max_scaling * model_pin.velocityLimit
         self.v_min = -self.v_max
         jointBoundsTask.setVelocityBounds(self.v_min, self.v_max)
         if(conf.w_joint_bounds>0.0):
             formulation.addMotionTask(jointBoundsTask, conf.w_joint_bounds, 0, 0.0)
 
         # NO BINDINGS FOR THIS TASK!
-        # jointBoundsTask = tsid.TaskJointPosVelAccBounds('task-joint-bounds', robot, conf.dt)
-        # self.q_min = conf.q_min_scaling * model.lowerPositionLimit
-        # self.q_max = conf.q_max_scaling * model.upperPositionLimit
-        # self.v_max = conf.v_max_scaling * model.velocityLimit
+        # jointBoundsTask = tsid.TaskJointPosVelAccBounds('task-joint-bounds', robot_tsid, conf.dt)
+        # self.q_min = conf.q_min_scaling * model_pin.lowerPositionLimit
+        # self.q_max = conf.q_max_scaling * model_pin.upperPositionLimit
+        # self.v_max = conf.v_max_scaling * model_pin.velocityLimit
         # jointBoundsTask.setVelocityBounds(self.v_max)
         # jointBoundsTask.setPositionBounds(self.q_min, self.q_max)
         # if(conf.w_joint_bounds>0.0):
@@ -85,29 +85,29 @@ class TsidManipulator:
         # armature_scalar = 0.0
         # gear_ratios = np.matrix(np.ones(7))
         # rotor_inertias = armature_scalar*np.matrix(np.ones(7))
-        # # robot.model().gear_ratios = gear_ratios 
-        # # robot.model().rotor_inertias = rotor_inertias 
-        # print(robot.model().rotorGearRatio)
-        # print(robot.model().rotorInertia)
-        # print(robot.gear_ratios)
-        # print(robot.rotor_inertias)
-        # # robot.set_gear_ratios(robot, gear_ratios)
-        # # robot.set_rotor_inertias(robot, rotor_inertias)
-        # # robot.gear_ratios = gear_ratios
-        # # robot.rotor_inertias = rotor_inertias
-        # # robot.gear_ratios(gear_ratios)
-        # # robot.rotor_inertias(rotor_inertias)
-        # # robot.updateMd()  # <==> croco "armature" but not binded
-        # # robot.setGravity(pin.Motion.Zero())
+        # # robot_tsid.model_pin().gear_ratios = gear_ratios 
+        # # robot_tsid.model_pin().rotor_inertias = rotor_inertias 
+        # print(robot_tsid.model_pin().rotorGearRatio)
+        # print(robot_tsid.model_pin().rotorInertia)
+        # print(robot_tsid.gear_ratios)
+        # print(robot_tsid.rotor_inertias)
+        # # robot_tsid.set_gear_ratios(robot_tsid, gear_ratios)
+        # # robot_tsid.set_rotor_inertias(robot_tsid, rotor_inertias)
+        # # robot_tsid.gear_ratios = gear_ratios
+        # # robot_tsid.rotor_inertias = rotor_inertias
+        # # robot_tsid.gear_ratios(gear_ratios)
+        # # robot_tsid.rotor_inertias(rotor_inertias)
+        # # robot_tsid.updateMd()  # <==> croco "armature" but not binded
+        # # robot_tsid.setGravity(pin.Motion.Zero())
 
 
         # formulation.computeProblemData(0.0, q, v)
         # tsid_data = formulation.data()
-        # robot.computeAllTerms(tsid_data, q, v)
+        # robot_tsid.computeAllTerms(tsid_data, q, v)
 
         # print('HEY')
-        # print(robot.com(tsid_data))
-        # robot.set_rotor_inertias(np.ones(7))
+        # print(robot_tsid.com(tsid_data))
+        # robot_tsid.set_rotor_inertias(np.ones(7))
                 
         # for gepetto viewer
         if(viewer):
