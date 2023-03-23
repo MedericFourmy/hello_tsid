@@ -34,23 +34,12 @@ fixed_joints = ['panda_finger_joint1', 'panda_finger_joint2']
 # fixed_joints = None
 robot = freezed_robot(robot, fixed_joints)
 
-
-# robot = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path])
-# robot.model.gravity.linear = np.zeros(3)
-robot.model.gravity.linear = np.array([0,0,-9.81])
 tsid = TsidManipulator(robot, conf)
-
-# Simulation
-# Simulation
-fixed_joints = ['panda_finger_joint1', 'panda_finger_joint2']
-# fixed_joints = None
-# robot = freezed_robot(robot, fixed_joints)
 
 sim = Simulator()
 sim.init(conf.dt, 'panda', fixed_joints, visual=True)
-sim.setState(conf.x0)
-
-
+x0 = np.concatenate([robot.q0, np.zeros(robot.nv)])
+sim.setState(x0)
 
 
 N = conf.N_SIMULATION
@@ -197,7 +186,7 @@ if(PLOT_JOINT_ANGLE):
     f.canvas.manager.set_window_title('Joint Angles')
     for i in range(tsid.robot_tsid.nv):
         ax[i].plot(t_arr, q[i,:-1], label='Joint angle '+str(i))
-        ax[i].plot([t_arr[0], t_arr[-1]], 2*[conf.q0[i]], ':')
+        ax[i].plot([t_arr[0], t_arr[-1]], 2*[robot.q0[i]], ':')
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel('Joint angle [rad]')
         leg = ax[i].legend()

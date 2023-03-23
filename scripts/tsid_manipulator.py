@@ -23,8 +23,9 @@ class TsidManipulator:
         
         assert model_pin.existFrame(conf.ee_frame_name)
         
+        v0 = np.zeros(robot_pin.nv)
         formulation = tsid.InverseDynamicsFormulationAccForce("tsid", robot_tsid, False)
-        formulation.computeProblemData(0.0, conf.q0, conf.v0)  # TODO: necessary?
+        formulation.computeProblemData(0.0, robot_pin.q0, v0)  # TODO: necessary?
                 
         postureTask = tsid.TaskJointPosture("task-posture", robot_tsid)
         postureTask.setKp(conf.kp_posture * np.ones(robot_tsid.nv))
@@ -65,7 +66,7 @@ class TsidManipulator:
         # if(conf.w_joint_bounds>0.0):
         #     formulation.addMotionTask(jointBoundsTask, conf.w_joint_bounds, 0, 0.0)
 
-        trajPosture = tsid.TrajectoryEuclidianConstant("traj_joint", conf.q0)
+        trajPosture = tsid.TrajectoryEuclidianConstant("traj_joint", robot_pin.q0)
         postureTask.setReference(trajPosture.computeNext())
         
         solver = tsid.SolverHQuadProgFast("qp solver")
@@ -77,8 +78,8 @@ class TsidManipulator:
         # self.jointBoundsTask = jointBoundsTask
         self.formulation = formulation
         self.solver = solver
-        self.q = conf.q0
-        self.v = conf.v0
+        self.q = robot_pin.q0
+        self.v = v0
 
  
         if(viewer):
@@ -114,4 +115,3 @@ class TsidManipulator:
         # # robot_tsid.gear_ratios(gear_ratios)
         # # robot_tsid.rotor_inertias(rotor_inertias)
         # # robot_tsid.updateMd()  # <==> croco "armature" but not binded
-        # # robot_tsid.setGravity(pin.Motion.Zero())

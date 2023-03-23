@@ -12,9 +12,6 @@ LINE_WIDTH = 60
 
 N_SIMULATION = 6000             # number of time steps simulated
 dt = 0.001                      # controller time step
-q0 = np.array([0, -0.785398163397, 0, -2.35619449019, 0, 1.57079632679, 0.785398163397])
-v0 = np.zeros(7)
-x0 = np.concatenate([q0, v0])
 
 # REFERENCE SINUSOIDAL TRAJECTORY
 amp                  = np.array([0.15, 0.3, 0.1])          # amplitude
