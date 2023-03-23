@@ -5,8 +5,8 @@ import os
 import gepetto.corbaserver
 import time
 import subprocess
+from example_robot_data import load
 
-# pin.switchToNumpyMatrix()
 
 
 class TsidManipulator:
@@ -17,8 +17,9 @@ class TsidManipulator:
         - pos/vel limits
     '''
     
-    def __init__(self, model: pin.Model, conf: dict(), viewer=True):
+    def __init__(self, robot_pin, conf: dict(), viewer=True):
         self.conf = conf
+        model = robot_pin.model
         robot = tsid.RobotWrapper(model, tsid.FIXED_BASE_SYSTEM, False)
         self.robot = robot
         self.model = model
@@ -26,7 +27,8 @@ class TsidManipulator:
         assert model.existFrame(conf.ee_frame_name)
         
         formulation = tsid.InverseDynamicsFormulationAccForce("tsid", robot, False)
-        formulation.computeProblemData(0.0, conf.q0, conf.v0)  # TODO: necessary?
+        v0 = np.zeros(robot.nv)
+        formulation.computeProblemData(0.0, robot_pin.q0, v0)  # TODO: necessary?
                 
         postureTask = tsid.TaskJointPosture("task-posture", robot)
         postureTask.setKp(conf.kp_posture * np.ones(robot.nv))
@@ -67,7 +69,7 @@ class TsidManipulator:
         # if(conf.w_joint_bounds>0.0):
         #     formulation.addMotionTask(jointBoundsTask, conf.w_joint_bounds, 0, 0.0)
 
-        trajPosture = tsid.TrajectoryEuclidianConstant("traj_joint", conf.q0)
+        trajPosture = tsid.TrajectoryEuclidianConstant("traj_joint", robot_pin.q0)
         postureTask.setReference(trajPosture.computeNext())
         
         solver = tsid.SolverHQuadProgFast("qp solver")
@@ -79,8 +81,8 @@ class TsidManipulator:
         # self.jointBoundsTask = jointBoundsTask
         self.formulation = formulation
         self.solver = solver
-        self.q = conf.q0
-        self.v = conf.v0
+        self.q = robot_pin.q0
+        self.v = v0
 
 
         # SETTING ARMATURE IN PYTHON NOT POSSIBLE
@@ -103,9 +105,9 @@ class TsidManipulator:
         # # robot.setGravity(pin.Motion.Zero())
 
 
-        # formulation.computeProblemData(0.0, q, v)
-        # tsid_data = formulation.data()
-        # robot.computeAllTerms(tsid_data, q, v)
+        formulation.computeProblemData(0.0, robot_pin.q0, v0)
+        tsid_data = formulation.data()
+        robot.computeAllTerms(tsid_data, robot_pin.q0, v0)
 
         # print('HEY')
         # print(robot.com(tsid_data))
@@ -113,7 +115,8 @@ class TsidManipulator:
                 
         # for gepetto viewer
         if(viewer):
-            self.robot_display = pin.RobotWrapper.BuildFromURDF(conf.urdf, [conf.path, ])
+            self.robot_display = pin.RobotWrapper(robot_pin.model, robot_pin.collision_model, robot_pin.visual_model)
+
             l = subprocess.getstatusoutput("ps aux |grep 'gepetto-gui'|grep -v 'grep'|wc -l")
             if int(l[1]) == 0:
                 os.system('gepetto-gui &')
